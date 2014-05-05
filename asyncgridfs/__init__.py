@@ -11,8 +11,9 @@ from bson.py3compat import StringIO
 from bson.binary import Binary
 import datetime
 from bson.binary import Binary
-from bson import ObjectId
+from bson.objectid import ObjectId
 
+DEFAULT_CHUNK_SIZE = 255 * 1024
 chunks_coll = lambda coll: '%s.chunks' % coll
 files_coll = lambda coll: '%s.files' % coll
 
@@ -49,6 +50,8 @@ class GridFS(object):
     def put(self, data, callback = None, **kwargs):
         grid_file = GridIn(self.client, self.root_collection, **kwargs)
         grid_file.write(data, callback = callback, **kwargs)
+        grid_file.close()
+        callback(grid_file._file['_id'])
 
 class GridIn(object):
     def __init__(self, client, root_collection, **kwargs):
@@ -56,29 +59,80 @@ class GridIn(object):
         self.root_collection = root_collection
         self._files = self.client.connection(files_coll(self.root_collection))
         self._chunks = self.client.connection(chunks_coll(self.root_collection))
-        self._id = None
+
+        # Handle alternative naming
+        if "content_type" in kwargs:
+            kwargs["contentType"] = kwargs.pop("content_type")
+        if "chunk_size" in kwargs:
+            kwargs["chunkSize"] = kwargs.pop("chunk_size")
+
+        # Defaults
+        kwargs["_id"] = kwargs.get("_id", ObjectId())
+        kwargs["chunkSize"] = kwargs.get("chunkSize", DEFAULT_CHUNK_SIZE)
+
+        self._file = kwargs
+        self._chunk_number = 0
+        self._position = 0
+        self._buffer = StringIO()
+
+    def __flush_data(self, data):
+
+        def no_check(*arg, **kwargs):
+            pass
+
+        chunk = {"files_id": self._file['_id'],
+                "n": self._chunk_number,
+                "data": Binary(data)}
+
+        self._chunks.insert(chunk, callback = no_check)
+        self._chunk_number += 1
+        self._position += len(data)
+
+    def __flush_buffer(self):
+        self.__flush_data(self._buffer.getvalue())
+        self._buffer.close()
+        self._buffer = StringIO()
 
     def write(self, data, callback = None, **kwargs):
-        self._id = ObjectId()
+        try:
+            read = data.read
+        except AttributeError:
+            read = StringIO(data).read
 
-        _file = dict()
-        _file["_id"] = self._id
-        _file["length"] = len(data)
-        _file["uploadDate"] = datetime.datetime.utcnow()
-        _file.update(kwargs)
+        if self._buffer.tell() > 0:
+            space = self.chunk_size = self._buffer.tell()
+            if space:
+                to_write = read(space)
+                self._buffer.write(to_write)
+                if len(to_write) < space:
+                    return # EOF
+            self.__flush_buffer()
 
-        def insert_files(res, error):
-            chunk = {"files_id": self._id,
-                    "n": 0,
-                    "data": Binary(data)}
+        to_write = read(self._file['chunkSize'])
+        while to_write and len(to_write) == self._file['chunkSize']:
+            self.__flush_data(to_write)
+            to_write = read(self._file['chunkSize'])
+        self._buffer.write(to_write)
 
-            def temp(r, error):
+
+    def __flush(self):
+        self.__flush_buffer()
+
+        def no_check(*arg, **kwargs):
+            pass
+
+        def cb_md5(*arg, **kwargs):
+            try:
+                self._file['md5'] = arg[0]['md5']
+            except:
                 pass
+            self._file["uploadDate"] = datetime.datetime.utcnow()
+            self._files.insert(self._file, callback = no_check)
 
-            self._chunks.insert(chunk, callback = temp)
-            callback(self._id)
+        self.client.command('filemd5', self._file['_id'], root=self.root_collection, callback=cb_md5)
 
-        self._files.insert(_file, callback = insert_files)
+    def close(self):
+        self.__flush()
 
 
 class GridOut(object):
@@ -107,7 +161,7 @@ class GridOut(object):
             data = StringIO()
             for item in res:
                 data.write(item['data'])
-            
+
             fileobj['data'] = data.getvalue() 
             callback(fileobj)
 
