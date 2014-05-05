@@ -32,9 +32,21 @@ class GridfsTest(unittest.TestCase):
 
         
         fs = GridFS(self.db,'fs')
-        fs.get(ObjectId('53659ad15319b80b7883f03c'),noop_callback)
-        tornado.ioloop.IOLoop.instance().start()
+        #fs.get(ObjectId('53659ad15319b80b7883f03c'),noop_callback)
+        #tornado.ioloop.IOLoop.instance().start()
         
+
+        
+        fs.list(noop_callback)
+        tornado.ioloop.IOLoop.instance().start()
+
+        def find_callback(res, error):
+            print res,error
+            tornado.ioloop.IOLoop.instance().stop()
+        
+        fs.find({'contentType':'image/png','code_name':'test-0000-a'},callback=noop_callback)
+        tornado.ioloop.IOLoop.instance().start()
+
 
 if __name__ == '__main__':
     unittest.main()

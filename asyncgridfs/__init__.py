@@ -23,13 +23,30 @@ class GridFS(object):
         assert isinstance(client, asyncmongo.Client)
         assert isinstance(root_collection,(str,unicode))
         self.client = client
-        self.root_collectin = root_collection
+        self.root_collection = root_collection
     
 
     def get(self, fid, callback=None):
-        out = GridOut(self.client,self.root_collectin,fid)
+        out = GridOut(self.client,self.root_collection,fid)
         out.read(callback=callback)
 
+     
+    def list(self, callback=None):
+        """ list all filename in gfs db """
+        def func(res, error):
+            if error:raise error
+            callback(res['values'])
+
+        self.client.command('distinct',files_coll(self.root_collection), key='filename', callback=func)
+    
+
+    def find(self, *args, **kwargs):
+        coll = self.client.connection(files_coll(self.root_collection))
+        func = partial(initcallback,kwargs['callback'])
+        kwargs['callback'] = func
+        coll.find(*args,**kwargs)
+
+        
 
 class GridOut(object):
 
@@ -61,13 +78,6 @@ class GridOut(object):
             fileobj['data'] = data.getvalue() 
             callback(fileobj)
 
-        self.__chunks_coll.find(cond,callback=surcor_callback)
+        self.__chunks_coll.find(cond,sort=[('n',-1)],callback=surcor_callback)
 
-
-    def list(self, callback=None):
-        """ list all filename in gfs db """
-        self.client.command('distinct',files_coll(self.root_collection), key='filename', callback=callback)
-
-    def find(self,*args, **kwargs):
-        pass
 
