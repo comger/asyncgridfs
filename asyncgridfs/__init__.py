@@ -9,6 +9,8 @@ from tornado import gen
 from functools import partial
 from bson.py3compat import StringIO
 from bson.binary import Binary
+import datetime
+from bson.binary import Binary
 
 chunks_coll = lambda coll: '%s.chunks' % coll
 files_coll = lambda coll: '%s.files' % coll
@@ -23,12 +25,48 @@ class GridFS(object):
         assert isinstance(client, asyncmongo.Client)
         assert isinstance(root_collection,(str,unicode))
         self.client = client
-        self.root_collectin = root_collection
+        self.root_collection = root_collection
     
 
     def get(self, fid, callback=None):
-        out = GridOut(self.client,self.root_collectin,fid)
+        out = GridOut(self.client,self.root_collection,fid)
         out.read(callback=callback)
+
+    def put(self, data, callback = None, **kwargs):
+        grid_file = GridIn(self.client, self.root_collection, **kwargs)
+        grid_file.write(data, callback = callback, **kwargs)
+
+class GridIn(object):
+    def __init__(self, client, root_collection, **kwargs):
+        self.client = client
+        self.root_collection = root_collection
+        self._files = self.client.connection(files_coll(self.root_collection))
+        self._chunks = self.client.connection(chunks_coll(self.root_collection))
+        self._id = None
+
+    def write(self, data, callback = None, **kwargs):
+        from bson import ObjectId
+        self._id = ObjectId()
+        print type(self._id)
+
+        _file = dict()
+        _file["_id"] = self._id
+        _file["length"] = len(data)
+        _file["uploadDate"] = datetime.datetime.utcnow()
+        _file.update(kwargs)
+
+        def insert_files(res, error):
+            chunk = {"files_id": self._id,
+                    "n": 0,
+                    "data": Binary(data)}
+
+            def temp(r, error):
+                pass
+
+            self._chunks.insert(chunk, callback = temp)
+            callback(self._id)
+
+        self._files.insert(_file, callback = insert_files)
 
 
 class GridOut(object):

@@ -22,17 +22,20 @@ class GridfsTest(unittest.TestCase):
 
 
     def test_get(self):
-
-        def noop_callback(response):
-            print response
-            logging.info(response)
-            loop = tornado.ioloop.IOLoop.instance()
-            # delay the stop so kill cursor has time on the ioloop to get pushed through to mongo
-            loop.add_timeout(time.time() + .1, loop.stop)
-
-        
         fs = GridFS(self.db,'fs')
-        fs.get(ObjectId('53659ad15319b80b7883f03c'),noop_callback)
+
+        def put_cb(_id):
+            def noop_callback(response):
+                print response
+                logging.info(response)
+                loop = tornado.ioloop.IOLoop.instance()
+                # delay the stop so kill cursor has time on the ioloop to get pushed through to mongo
+                loop.add_timeout(time.time() + .1, loop.stop)
+
+            fs.get(_id,noop_callback)
+
+        fs.put("78hlkjhg90ik75678", file_name = "a.png", contentType="image/png", callback = put_cb)
+
         tornado.ioloop.IOLoop.instance().start()
         
 
