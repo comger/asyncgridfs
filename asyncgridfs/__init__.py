@@ -52,6 +52,9 @@ class GridFS(object):
         grid_file.write(data, callback = callback, **kwargs)
         grid_file.close()
         callback(grid_file._file['_id'])
+    
+    def delete(self, fid, callback=None):
+        pass
 
 class GridIn(object):
     def __init__(self, client, root_collection, **kwargs):
@@ -147,6 +150,7 @@ class GridOut(object):
         """　read fid's file infomation """
         self.__files_coll = self.client.connection(files_coll(self.root_collection))
         func = partial(initcallback,callback)
+
         self.__files_coll.find_one({"_id": self.fid}, callback=func)
 
     def read(self,fileobj=None, callback=None):
@@ -154,7 +158,7 @@ class GridOut(object):
         if not fileobj:
             func = partial(self.read,callback=callback)
             return self.get_file(callback=func)
-
+        
         self.__chunks_coll = self.client.connection(chunks_coll(self.root_collection))
         cond = dict(files_id = self.fid)
         def surcor_callback(res,error):
@@ -166,5 +170,4 @@ class GridOut(object):
             callback(fileobj)
 
         self.__chunks_coll.find(cond,sort=[('n',-1)],callback=surcor_callback)
-
 

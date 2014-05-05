@@ -18,7 +18,7 @@ class GridfsTest(unittest.TestCase):
 
     def setUp(self):
         super(GridfsTest, self).setUp()
-        self.db = asyncmongo.Client(pool_id='test_query', host='192.168.111.3', port=27017, dbname='gfs', mincached=3)
+        self.db = asyncmongo.Client(pool_id='test_query', host='127.0.0.1', port=27017, dbname='gfs', mincached=3)
 
 
     def test_get(self):
