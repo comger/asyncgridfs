@@ -11,6 +11,7 @@ from bson.py3compat import StringIO
 from bson.binary import Binary
 import datetime
 from bson.binary import Binary
+from bson import ObjectId
 
 chunks_coll = lambda coll: '%s.chunks' % coll
 files_coll = lambda coll: '%s.files' % coll
@@ -27,6 +28,19 @@ class GridFS(object):
         self.client = client
         self.root_collection = root_collection
     
+    def list(self, callback=None):
+        """ list all filename in gfs db """
+        def func(res, error):
+            if error:raise error
+            callback(res['values'])
+
+        self.client.command('distinct',files_coll(self.root_collection), key='filename', callback=func)
+
+    def find(self, *args, **kwargs):
+        coll = self.client.connection(files_coll(self.root_collection))
+        func = partial(initcallback,kwargs['callback'])
+        kwargs['callback'] = func
+        coll.find(*args,**kwargs)
 
     def get(self, fid, callback=None):
         out = GridOut(self.client,self.root_collection,fid)
@@ -45,9 +59,7 @@ class GridIn(object):
         self._id = None
 
     def write(self, data, callback = None, **kwargs):
-        from bson import ObjectId
         self._id = ObjectId()
-        print type(self._id)
 
         _file = dict()
         _file["_id"] = self._id
@@ -99,13 +111,6 @@ class GridOut(object):
             fileobj['data'] = data.getvalue() 
             callback(fileobj)
 
-        self.__chunks_coll.find(cond,callback=surcor_callback)
+        self.__chunks_coll.find(cond,sort=[('n',-1)],callback=surcor_callback)
 
-
-    def list(self, callback=None):
-        """ list all filename in gfs db """
-        self.client.command('distinct',files_coll(self.root_collection), key='filename', callback=callback)
-
-    def find(self,*args, **kwargs):
-        pass
 

@@ -36,8 +36,15 @@ class GridfsTest(unittest.TestCase):
 
         fs.put("78hlkjhg90ik75678", file_name = "a.png", contentType="image/png", callback = put_cb)
 
+        #fs.list(noop_callback)
+
+        #def find_callback(res, error):
+        #    print res,error
+        #    tornado.ioloop.IOLoop.instance().stop()
+        #
+        #fs.find({'contentType':'image/png','code_name':'test-0000-a'},callback=noop_callback)
         tornado.ioloop.IOLoop.instance().start()
-        
+
 
 if __name__ == '__main__':
     unittest.main()
