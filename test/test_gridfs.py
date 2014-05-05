@@ -34,7 +34,9 @@ class GridfsTest(unittest.TestCase):
 
             fs.get(_id,noop_callback)
 
-        fs.put("78hlkjhg90ik75678", file_name = "a.png", contentType="image/png", callback = put_cb)
+        fs.put("78hlkjhg90ik75678", file_name = "a.png", contentType="image/png", 
+                                    chunk_size = 3,
+                                    callback = put_cb)
 
         #fs.list(noop_callback)
 
