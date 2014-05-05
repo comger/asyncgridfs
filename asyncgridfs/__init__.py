@@ -58,8 +58,7 @@ class GridOut(object):
             for item in res:
                 data.write(item['data'])
             
-            fileobj['data'] = data.read(fileobj['chunkSize'])
-            fileobj['data'] = 'xxx' 
+            fileobj['data'] = data.getvalue() 
             callback(fileobj)
 
         self.__chunks_coll.find(cond,callback=surcor_callback)
