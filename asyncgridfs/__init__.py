@@ -54,7 +54,13 @@ class GridFS(object):
         callback(grid_file._file['_id'])
     
     def delete(self, fid, callback=None):
-        pass
+        def next_func(res,error):
+            if error:raise error
+            c_coll = self.client.connection(chunks_coll(self.root_collection))
+            c_coll.remove(spec_or_id=fid,callback=callback)
+        
+        f_coll = self.client.connection(files_coll(self.root_collection))
+        c_coll.remove(spec_or_id=fid,callback=next_func)
 
 class GridIn(object):
     def __init__(self, client, root_collection, **kwargs):
