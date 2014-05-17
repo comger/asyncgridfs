@@ -74,7 +74,7 @@ class GridIn(object):
             kwargs["contentType"] = kwargs.pop("content_type")
         if "chunk_size" in kwargs:
             kwargs["chunkSize"] = kwargs.pop("chunk_size")
-
+        
         # Defaults
         kwargs["_id"] = kwargs.get("_id", ObjectId())
         kwargs["chunkSize"] = kwargs.get("chunkSize", DEFAULT_CHUNK_SIZE)
@@ -103,11 +103,13 @@ class GridIn(object):
         self._buffer = StringIO()
 
     def write(self, data, callback = None, **kwargs):
+        self._file['length'] = len(data)
+        self._file.update(kwargs)
         try:
             read = data.read
         except AttributeError:
             read = StringIO(data).read
-
+        
         if self._buffer.tell() > 0:
             space = self.chunk_size = self._buffer.tell()
             if space:
